@@ -1,0 +1,21 @@
+Age
+Height
+Right or left footed
+Cost
+
+Stats from 12 to 19:
+Offense
+Defense
+Body balance
+Stamina
+Speed
+Acceleration
+Response
+Jump power
+Head accuracy
+Technique
+Pass accuracy
+Shoot power
+Shoot accuracy
+Dribble
+Curve

@@ -1,0 +1,5 @@
+parse_diagnostic.txt
+find_costs.py
+find_costs2.py
+__pycache__/
+*.pyc
