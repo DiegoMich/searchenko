@@ -132,8 +132,10 @@ SELECT_STATS_NAT_OFFSET  = 0x265EC   # 1449 national team player records
 SELECT_STATS_NAT_COUNT   = 1449
 SELECT_STATS_CLUB_OFFSET = 0x2BB0C   # 462 club/ML player records
 SELECT_STATS_CLUB_COUNT  = 462
-SELECT4_COSTS_OFFSET     = 0x002174  # 1449 × 1-byte ML costs (nat team players, SELECT4.BIN)
-SELECT4_COSTS_COUNT      = 1449
+SELECT4_COSTS_OFFSET        = 0x002174  # 1242 × 1-byte ML costs for regular teams (nat_idx 0-1241)
+SELECT4_COSTS_COUNT         = 1242
+SELECT4_SPECIAL_COSTS_OFFSET = 0x002622  # 207 × 1-byte ML costs for special teams (nat_idx 1242-1448)
+SELECT4_SPECIAL_START        = 1242      # nat_idx where special teams begin
 
 # Player → club team mapping (based on ~2001-02 season rosters)
 # Keys match the names as they appear in SELECT.BIN.
@@ -297,7 +299,7 @@ def decode_we_record(b):
     jump  = 12  + ((c[10] >> 2) & 0x07)                         # jump
     curve = 12  + ((c[10] >> 5) & 0x07)                         # curve/effect
     aggr  = 12  + (c[11] & 0x07)                                 # aggression
-    if h < 158 or h > 205 or age > 40:
+    if h < 148 or h > 211 or age > 40:
         return None
     return {
         "position":   POSITION_LABELS.get(pos, "?"),
@@ -345,19 +347,28 @@ def load_club_stats(select_bytes):
 
 
 def load_nat_costs():
-    """Read 1449 × 1-byte ML costs from SELECT4.BIN (indexed by nat_idx).
+    """Read ML costs from SELECT4.BIN for all 1449 nat-team players.
 
-    Values are in range 14-50.  Zero entries (5 of 1449) are stored as None.
+    Two separate arrays:
+      - Regular teams (nat_idx 0-1241):  offset 0x2174, 1242 bytes
+      - Special teams (nat_idx 1242-1448): offset 0x2622, 207 bytes
+        (World Stars I/II + Classic England/France/Netherlands/Italy/Germany/Brazil/Argentina)
     """
+    total = SELECT4_SPECIAL_START + 207  # 1449
     try:
         data = SELECT4_PATH.read_bytes()
         costs = []
+        # Regular teams
         for i in range(SELECT4_COSTS_COUNT):
             val = data[SELECT4_COSTS_OFFSET + i]
             costs.append(val if val > 0 else None)
+        # Special teams
+        for i in range(207):
+            val = data[SELECT4_SPECIAL_COSTS_OFFSET + i]
+            costs.append(val if val > 0 else None)
         return costs
     except Exception:
-        return [None] * SELECT4_COSTS_COUNT
+        return [None] * total
 
 
 def assign_club_team(slot_idx, name):
@@ -1104,7 +1115,7 @@ def main():
         nat_stats, club_stats = [], []
 
     nat_costs = load_nat_costs()
-    log(f"  ML costs loaded:            {sum(1 for c in nat_costs if c)} (from SELECT4.BIN)")
+    log(f"  ML costs loaded:            {sum(1 for c in nat_costs if c)} regular + special (from SELECT4.BIN)")
 
     # Build name -> ml_cost lookup from national team players (for club player cost carry-over)
     nat_cost_by_name = {}
