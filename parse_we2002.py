@@ -136,6 +136,7 @@ SELECT4_COSTS_OFFSET        = 0x002174  # 1242 × 1-byte ML costs for regular te
 SELECT4_COSTS_COUNT         = 1242
 SELECT4_SPECIAL_COSTS_OFFSET = 0x002622  # 207 × 1-byte ML costs for special teams (nat_idx 1242-1448)
 SELECT4_SPECIAL_START        = 1242      # nat_idx where special teams begin
+SELECT4_CLUB_COSTS_OFFSET    = 0x002880  # 462 × 1-byte ML costs for club/ML players (SELECT.BIN slot index)
 
 # Player → club team mapping (based on ~2001-02 season rosters)
 # Keys match the names as they appear in SELECT.BIN.
@@ -371,6 +372,22 @@ def load_nat_costs():
         return [None] * total
 
 
+def load_club_costs():
+    """Read 462 × 1-byte ML costs for club/ML players from SELECT4.BIN.
+
+    Indexed by SELECT.BIN club slot (0-461).
+    """
+    try:
+        data = SELECT4_PATH.read_bytes()
+        costs = []
+        for i in range(SELECT_BLOCK_COUNT):
+            val = data[SELECT4_CLUB_COSTS_OFFSET + i]
+            costs.append(val if val > 0 else None)
+        return costs
+    except Exception:
+        return [None] * SELECT_BLOCK_COUNT
+
+
 def assign_club_team(slot_idx, name):
     """Look up club team for a SELECT.BIN player."""
     if name in PLAYER_CLUB_MAP:
@@ -382,7 +399,7 @@ def assign_club_team(slot_idx, name):
     return "League Teams"
 
 
-def extract_club_players(select_bytes, club_stat_records, nat_cost_by_name=None):
+def extract_club_players(select_bytes, club_stat_records, club_costs=None):
     """Extract 462 club/ML players from SELECT.BIN name block with stats."""
     players = []
     for slot in range(SELECT_BLOCK_COUNT):
@@ -398,7 +415,7 @@ def extract_club_players(select_bytes, club_stat_records, nat_cost_by_name=None)
             continue
         team    = assign_club_team(slot, name)
         stats   = club_stat_records[slot] if slot < len(club_stat_records) else None
-        ml_cost = nat_cost_by_name.get(name) if nat_cost_by_name else None
+        ml_cost = club_costs[slot] if club_costs and slot < len(club_costs) else None
         players.append(_make_player(10000 + slot, name, team, stats, ml_cost))
     return players
 
@@ -1114,20 +1131,14 @@ def main():
         log(f"  ERROR reading SELECT.BIN: {e}")
         nat_stats, club_stats = [], []
 
-    nat_costs = load_nat_costs()
-    log(f"  ML costs loaded:            {sum(1 for c in nat_costs if c)} regular + special (from SELECT4.BIN)")
-
-    # Build name -> ml_cost lookup from national team players (for club player cost carry-over)
-    nat_cost_by_name = {}
-    for slot_idx, name in valid_names:
-        nat_idx = slot_idx - FIRST_REAL_SLOT
-        if nat_idx < len(nat_costs) and nat_costs[nat_idx] is not None:
-            nat_cost_by_name.setdefault(name, nat_costs[nat_idx])
+    nat_costs  = load_nat_costs()
+    club_costs = load_club_costs()
+    log(f"  ML costs loaded: {sum(1 for c in nat_costs if c)} nat + {sum(1 for c in club_costs if c)} club (from SELECT4.BIN)")
 
     # ── Phase C — Club players ────────────────────────────────────────────────
     log(f"\n=== Phase C: Extracting club/ML players ===")
     try:
-        club_players = extract_club_players(select_bytes, club_stats, nat_cost_by_name)
+        club_players = extract_club_players(select_bytes, club_stats, club_costs)
         log(f"  Club players extracted: {len(club_players)}")
         log(f"  With stats: {sum(1 for p in club_players if p['offense'] is not None)}")
     except Exception as e:
