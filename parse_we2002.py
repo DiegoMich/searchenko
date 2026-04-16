@@ -130,7 +130,7 @@ SELECT_SLOT_SIZE    = 10
 # SELECT.BIN: 12-byte bit-packed player stat records
 SELECT_STATS_NAT_OFFSET  = 0x265EC   # 1449 national team player records
 SELECT_STATS_NAT_COUNT   = 1449
-SELECT_STATS_CLUB_OFFSET = 0x2BB0C   # 462 club/ML player records
+SELECT_STATS_CLUB_OFFSET = 0x2B908   # 462 club/ML player records
 SELECT_STATS_CLUB_COUNT  = 462
 SELECT4_COSTS_OFFSET        = 0x002174  # 1242 × 1-byte ML costs for regular teams (nat_idx 0-1241)
 SELECT4_COSTS_COUNT         = 1242
